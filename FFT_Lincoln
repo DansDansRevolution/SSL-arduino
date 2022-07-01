@@ -8,8 +8,12 @@ const double samplingFrequency = 2000; //Hz, must be less than 10000 due to ADC
 unsigned int sampling_period_us;
 unsigned long microseconds;
 
-double vReal[samples];
-double vImag[samples];
+double v1Real[samples];
+double v1Imag[samples];
+double v2Real[samples];
+double v2Imag[samples];
+double v3Real[samples];
+double v3Imag[samples];
 
 #define MIC1 A3
 #define MIC2 A4
@@ -38,51 +42,63 @@ void loop()
   microseconds = micros();
     for(int i = 0; i < samples; i++)
     {
-        vReal[i] = analogRead(MIC1);
-        vImag[i] = 0;
+        v1Real[i] = analogRead(MIC1);
+        v1Imag[i] = 0;
         while(micros() - microseconds < sampling_period_us){
         
         }
         microseconds += sampling_period_us;
     }
-    FFTComp();
+      FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+      FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
+      FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
+      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
     for(int i = 0; i < samples; i++)
     {
-        vReal[i] = analogRead(MIC2);
-        vImag[i] = 0;
+        v2Real[i] = analogRead(MIC2);
+        v2Imag[i] = 0;
         while(micros() - microseconds < sampling_period_us){
         
         }
         microseconds += sampling_period_us;
     }
-    FFTComp();
+      FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+      FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
+      FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
+      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
     for(int i = 0; i < samples; i++)
     {
-        vReal[i] = analogRead(MIC3);
-        vImag[i] = 0;
+        v3Real[i] = analogRead(MIC3);
+        v3Imag[i] = 0;
         while(micros() - microseconds < sampling_period_us){
         
         }
         microseconds += sampling_period_us;
     }
-    FFTComp();
-  delay(10);
+      FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+      FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
+      FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
+      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
+  Serial.println("MICS Read");
+  delay(2000);
 }
 
 
 
-void FFTComp()
-{
-  FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-  FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
-  FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
-  PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
-}
+//void FFTComp()
+//{
+//  FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+//  FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
+//  FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
+//  PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
+//}
 
 
 
 void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
 {
+  for (uint16_t i = 0; i < bufferSize; i++)
+  {
     double abscissa;
     
     abscissa = ((i * 1.0 * samplingFrequency) / samples);
@@ -92,5 +108,6 @@ void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
       Serial.print("Hz");
     Serial.print(" ");
     Serial.println(vData[i], 4);
+  }
   Serial.println();
 }
