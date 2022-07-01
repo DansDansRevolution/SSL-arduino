@@ -18,6 +18,9 @@ double v3Imag[samples];
 #define MIC1 A3
 #define MIC2 A4
 #define MIC3 A5
+#define LED1 6
+#define LED2 7
+#define LED3 8
 
 #define SCL_FREQUENCY 0x02
 
@@ -52,6 +55,15 @@ void loop()
       FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
       FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
       FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
+      v1Real[0] = 0;
+      v1Real[1] = 0;
+      v1Real[2] = 0;
+      double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
+      if (300 < v1Peak && v1Peak < 500) {
+    digitalWrite(6, HIGH);
+  } else {
+    //digitalWrite(6, LOW);
+  }
       PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
     for(int i = 0; i < samples; i++)
     {
@@ -65,7 +77,16 @@ void loop()
       FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
       FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
       FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
-      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
+      v2Real[0] = 0;
+      v2Real[1] = 0;
+      v2Real[2] = 0;
+      double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
+      if (300 < v2Peak && v2Peak < 500) {
+    digitalWrite(7, HIGH);
+  } else {
+   // digitalWrite(7, LOW);
+  }
+      PrintVector(v2Real, (samples >> 1), SCL_FREQUENCY);
     for(int i = 0; i < samples; i++)
     {
         v3Real[i] = analogRead(MIC3);
@@ -78,9 +99,21 @@ void loop()
       FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
       FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
       FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
-      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
+      v3Real[0] = 0;
+      v3Real[1] = 0;
+      v3Real[2] = 0;
+      double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
+      if (300 < v3Peak && v3Peak < 500) {
+    digitalWrite(8, HIGH);
+  } else {
+    //digitalWrite(8, LOW);
+  }
+      PrintVector(v3Real, (samples >> 1), SCL_FREQUENCY);
+      Serial.println(v1Peak);
+      Serial.println(v2Peak);
+      Serial.println(v3Peak);
   Serial.println("MICS Read");
-  delay(2000);
+  delay(1000);
 }
 
 
@@ -104,7 +137,7 @@ void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
     abscissa = ((i * 1.0 * samplingFrequency) / samples);
     
     Serial.print(abscissa, 6);
-    if(scaleType==SCL_FREQUENCY)
+    if(scaleType == SCL_FREQUENCY)
       Serial.print("Hz");
     Serial.print(" ");
     Serial.println(vData[i], 4);
