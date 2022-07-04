@@ -14,17 +14,18 @@ double v2Real[samples];
 double v2Imag[samples];
 double v3Real[samples];
 double v3Imag[samples];
+double v1AMP;
+double v2AMP;
+double v3AMP;
 
 #define MIC1 A3
 #define MIC2 A4
 #define MIC3 A5
-#define LED1 6
-#define LED2 7
-#define LED3 8
+#define LED1 7
+#define LED2 8
+#define LED3 9
 
-#define SCL_FREQUENCY 0x02
-
-
+//#define SCL_FREQUENCY 0x02
 
 void setup()
 {
@@ -37,9 +38,9 @@ void setup()
   Serial.begin(115200);
   while(!Serial);
 
-  pinMode(6, OUTPUT);
   pinMode(7, OUTPUT);
   pinMode(8, OUTPUT);
+  pinMode(9, OUTPUT);
 }
 
 
@@ -81,25 +82,55 @@ void loop()
       double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
       double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
       double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
-  if (300 < v1Peak && v1Peak < 500) {
-    digitalWrite(6, HIGH);
-  } else {
-    digitalWrite(6, LOW);
+//      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
+//      PrintVector(v2Real, (samples >> 1), SCL_FREQUENCY);
+//      PrintVector(v3Real, (samples >> 1), SCL_FREQUENCY);
+      
+//  if (300 < v1Peak && v1Peak < 500) {
+//    digitalWrite(6, HIGH);
+//  } else {
+//    digitalWrite(6, LOW);
+//  }
+//  if (300 < v2Peak && v2Peak < 500) {
+//    digitalWrite(7, HIGH);
+//  } else {
+//   digitalWrite(7, LOW);
+//  }
+//  if (300 < v3Peak && v3Peak < 500) {
+//    digitalWrite(8, HIGH);
+//  } else {
+//    digitalWrite(8, LOW);
+//  }
+  
+  for (int i = 0; i < samples; i++)
+  {
+    if (((i * samplingFrequency) / samples) > v1Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v1Peak + (samplingFrequency / samples)) {
+      v1AMP = v1Real[i];
+    }
+    if (((i * samplingFrequency) / samples) > v2Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v2Peak + (samplingFrequency / samples)) {
+      v2AMP = v2Real[i];
+    }
+    if (((i * samplingFrequency) / samples) > v3Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v3Peak + (samplingFrequency / samples)) {
+      v3AMP = v3Real[i];
+    }
   }
-  if (300 < v2Peak && v2Peak < 500) {
-    digitalWrite(7, HIGH);
-  } else {
-   digitalWrite(7, LOW);
-  }
-  if (300 < v3Peak && v3Peak < 500) {
-    digitalWrite(8, HIGH);
-  } else {
-    digitalWrite(8, LOW);
-  }
-      Serial.println(v1Peak);
-      Serial.println(v2Peak);
-      Serial.println(v3Peak);
- // Serial.println("MICS Read");
+
+
+  if (max(max(v1AMP, v2AMP),v3AMP) == v1AMP) {
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, LOW);
+    digitalWrite(LED3, LOW);
+  } else if (max(v2AMP, v3AMP) == v2AMP) {
+      digitalWrite(LED1, LOW);
+      digitalWrite(LED2, HIGH);
+      digitalWrite(LED3, LOW);
+    } else {
+      digitalWrite(LED1, LOW);
+      digitalWrite(LED2, LOW);
+      digitalWrite(LED3, HIGH);
+    }
+
+  
   delay(10);
 }
 
@@ -111,23 +142,23 @@ void loop()
 //  FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
 //  FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
 //  PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
+////}
+
+
+
+//void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
+//{
+//  for (uint16_t i = 0; i < bufferSize; i++)
+//  {
+//    double abscissa;
+//    
+//    abscissa = ((i * 1.0 * samplingFrequency) / samples);
+//    
+//    Serial.print(abscissa, 6);
+//    if(scaleType == SCL_FREQUENCY)
+//      Serial.print("Hz");
+//    Serial.print(" ");
+//    Serial.println(vData[i], 4);
+//  }
+//  Serial.println();
 //}
-
-
-
-void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
-{
-  for (uint16_t i = 0; i < bufferSize; i++)
-  {
-    double abscissa;
-    
-    abscissa = ((i * 1.0 * samplingFrequency) / samples);
-    
-    Serial.print(abscissa, 6);
-    if(scaleType == SCL_FREQUENCY)
-      Serial.print("Hz");
-    Serial.print(" ");
-    Serial.println(vData[i], 4);
-  }
-  Serial.println();
-}
