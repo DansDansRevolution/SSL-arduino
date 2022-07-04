@@ -125,9 +125,9 @@ void loop()
       digitalWrite(LED2, HIGH);
       digitalWrite(LED3, LOW);
     } else {
-      digitalWrite(LED1, LOW);
-      digitalWrite(LED2, LOW);
-      digitalWrite(LED3, HIGH);
+        digitalWrite(LED1, LOW);
+        digitalWrite(LED2, LOW);
+        digitalWrite(LED3, HIGH);
     }
 
   
