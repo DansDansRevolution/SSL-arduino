@@ -48,37 +48,34 @@ void setup()
 void loop()
 {
   microseconds = micros();
-    for(int i = 0; i < samples; i++)
-    {
-        v1Real[i] = analogRead(MIC1);
-        v1Imag[i] = 0;
-        v2Real[i] = analogRead(MIC2);
-        v2Imag[i] = 0;
-        v3Real[i] = analogRead(MIC3);
-        v3Imag[i] = 0;
-        while(micros() - microseconds < sampling_period_us){
+  for(int i = 0; i < samples; i++){
+    v1Real[i] = analogRead(MIC1);
+    v1Imag[i] = 0;
+    v2Real[i] = analogRead(MIC2);
+    v2Imag[i] = 0;
+    v3Real[i] = analogRead(MIC3);
+    v3Imag[i] = 0;
+    while(micros() - microseconds < sampling_period_us){
         
-        }
-        microseconds += sampling_period_us;
     }
-      FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
-      FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
-      FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
-      v1Real[0] = 0;
-      v1Real[1] = 0;
-      v1Real[2] = 0;
-      v2Real[0] = 0;
-      v2Real[1] = 0;
-      v2Real[2] = 0;
-      v3Real[0] = 0;
-      v3Real[1] = 0;
-      v3Real[2] = 0;
+    microseconds += sampling_period_us;
+  }
+    FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
+    FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
+    FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
+    
+    for(int j = 0; j < 3; j++){
+      v1Real[j] = 0;
+      v2Real[j] = 0;
+      v3Real[j] = 0;
+    }
+    
       double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
       double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
       double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
@@ -115,22 +112,20 @@ void loop()
     }
   }
 
-
   if (max(max(v1AMP, v2AMP),v3AMP) == v1AMP) {
     digitalWrite(LED1, HIGH);
     digitalWrite(LED2, LOW);
     digitalWrite(LED3, LOW);
   } else if (max(v2AMP, v3AMP) == v2AMP) {
-      digitalWrite(LED1, LOW);
-      digitalWrite(LED2, HIGH);
-      digitalWrite(LED3, LOW);
-    } else {
-        digitalWrite(LED1, LOW);
-        digitalWrite(LED2, LOW);
-        digitalWrite(LED3, HIGH);
-    }
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, HIGH);
+    digitalWrite(LED3, LOW);
+  } else {
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+    digitalWrite(LED3, HIGH);
+  }
 
-  
   delay(10);
 }
 
