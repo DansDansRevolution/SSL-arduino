@@ -8,6 +8,32 @@ const double samplingFrequency = 2000; //Hz, must be less than 10000 due to ADC
 unsigned int sampling_period_us;
 unsigned long microseconds;
 
+int filterVal1 = 0;      //initialization of sensor variable, equivalent to EMA Y
+int filterVal2 = 0;
+int filterVal3 = 0;
+ 
+float EMA_a_low1 = 0.3;    //initialization of EMA alpha
+float EMA_a_high1 = 0.5;
+float EMA_a_low2 = 0.3;    //initialization of EMA alpha
+float EMA_a_high2 = 0.5;
+float EMA_a_low3 = 0.3;    //initialization of EMA alpha
+float EMA_a_high3 = 0.5;
+ 
+int EMA_S_low1 = 0;        //initialization of EMA S
+int EMA_S_high1 = 0;
+int EMA_S_low2 = 0;        //initialization of EMA S
+int EMA_S_high2 = 0;
+int EMA_S_low3 = 0;        //initialization of EMA S
+int EMA_S_high3 = 0;
+
+int bandpassMIC1 = 0;
+int bandpassMIC2 = 0;
+int bandpassMIC3 = 0;
+
+double CCmult12 = 0;
+double CCadd12[500];
+int CCmax12 = 0;
+
 double v1Real[samples];
 double v1Imag[samples];
 double v2Real[samples];
@@ -17,6 +43,8 @@ double v3Imag[samples];
 double v1AMP;
 double v2AMP;
 double v3AMP;
+
+//double mv1,mv2,sv1,sv2,sv1v2,denom,r;
 
 #define MIC1 A3
 #define MIC2 A4
@@ -36,7 +64,13 @@ void setup()
   
   sampling_period_us = round(1000000*(1.0/samplingFrequency));
   Serial.begin(115200);
-  while(!Serial);
+
+  EMA_S_low1 = analogRead(MIC1);      //set EMA S for t=1
+  EMA_S_high1 = analogRead(MIC1);
+  EMA_S_low2 = analogRead(MIC2);      //set EMA S for t=1
+  EMA_S_high2 = analogRead(MIC2);
+  EMA_S_low3 = analogRead(MIC3);      //set EMA S for t=1
+  EMA_S_high3 = analogRead(MIC3);
 
   pinMode(7, OUTPUT);
   pinMode(8, OUTPUT);
@@ -48,59 +82,96 @@ void setup()
 void loop()
 {
   microseconds = micros();
-    for(int i = 0; i < samples; i++)
-    {
-        v1Real[i] = analogRead(MIC1);
-        v1Imag[i] = 0;
-        v2Real[i] = analogRead(MIC2);
-        v2Imag[i] = 0;
-        v3Real[i] = analogRead(MIC3);
-        v3Imag[i] = 0;
-        while(micros() - microseconds < sampling_period_us){
+  for(int i = 0; i < samples; i++){
+    
+  filterVal1 = analogRead(MIC1);    //read the sensor value using ADC
+  filterVal2 = analogRead(MIC2);    //read the sensor value using ADC
+  filterVal3 = analogRead(MIC3);    //read the sensor value using ADC
+   
+  EMA_S_low1 = (EMA_a_low1*filterVal1) + ((1-EMA_a_low1)*EMA_S_low1);  //run the EMA
+  EMA_S_high1 = (EMA_a_high1*filterVal1) + ((1-EMA_a_high1)*EMA_S_high1);
+  EMA_S_low2 = (EMA_a_low2*filterVal2) + ((1-EMA_a_low2)*EMA_S_low2);  //run the EMA
+  EMA_S_high2 = (EMA_a_high2*filterVal2) + ((1-EMA_a_high2)*EMA_S_high2);
+  EMA_S_low3 = (EMA_a_low3*filterVal3) + ((1-EMA_a_low3)*EMA_S_low3);  //run the EMA
+  EMA_S_high3 = (EMA_a_high3*filterVal3) + ((1-EMA_a_high3)*EMA_S_high3);
+   
+  bandpassMIC1 = EMA_S_high1 - EMA_S_low1;      //find the band-pass
+  bandpassMIC2 = EMA_S_high2 - EMA_S_low2;
+  bandpassMIC3 = EMA_S_high3 - EMA_S_low3;
+  
+    v1Real[i] = bandpassMIC1;
+    v1Imag[i] = 0;
+    v2Real[i] = bandpassMIC2;
+    v2Imag[i] = 0;
+    v3Real[i] = bandpassMIC3;
+    v3Imag[i] = 0;
+    while(micros() - microseconds < sampling_period_us){
         
-        }
-        microseconds += sampling_period_us;
     }
-      FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
-      FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
-      FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-      FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
-      FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
-      v1Real[0] = 0;
-      v1Real[1] = 0;
-      v1Real[2] = 0;
-      v2Real[0] = 0;
-      v2Real[1] = 0;
-      v2Real[2] = 0;
-      v3Real[0] = 0;
-      v3Real[1] = 0;
-      v3Real[2] = 0;
+    microseconds += sampling_period_us;
+  }
+
+
+  
+
+//   mv1 = 0;
+//   mv2 = 0;   
+//   for (int i = 0; i < samples; i++) {
+//      mv1 += v1Real[i];
+//      mv2 += v2Real[i];
+//   }
+//   mv1 /= samples;
+//   mv2 /= samples;
+//   Serial.println("mean done");
+//
+//   /* Calculate the denominator */
+//   sv1 = 0;
+//   sv2 = 0;
+//   for (int i = 0; i < samples; i++) {
+//      sv1 += (v1Real[i] - mv1) * (v1Real[i] - mv1);
+//      sv2 += (v2Real[i] - mv2) * (v2Real[i] - mv2);
+//   }
+//   denom = sqrt(sv1*sv2);
+//   Serial.println("denom done");
+//
+//   /* Calculate the correlation series */
+//   for (int dt = -sampling_period_us; dt < sampling_period_us; dt++) {
+//      sv1v2 = 0;
+//      for (int i = 0; i < samples; i++) {
+//         int j = i + dt;
+//         if (j < 0 || j >= samples) {
+//            Serial.println("cont");
+//            continue;
+//         } else {
+//            sv1v2 += (v1Real[i] - mv1) * (v2Real[j] - mv2);
+//            Serial.println("else done");
+//         }
+//      }
+//      r = sv1v2 / denom;
+//      Serial.println(r);
+//   }
+
+
+  
+    FFT.Windowing(v1Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v1Real, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v1Real, v1Imag, samples); /* Compute magnitudes */
+    FFT.Windowing(v2Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v2Real, v2Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v2Real, v2Imag, samples); /* Compute magnitudes */
+    FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+    FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
+    
+    for (int j = 0; j < 3; j++){
+      v1Real[j] = 0;
+      v2Real[j] = 0;
+      v3Real[j] = 0;
+    }
+
       double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
       double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
       double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
-//      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
-//      PrintVector(v2Real, (samples >> 1), SCL_FREQUENCY);
-//      PrintVector(v3Real, (samples >> 1), SCL_FREQUENCY);
-      
-//  if (300 < v1Peak && v1Peak < 500) {
-//    digitalWrite(6, HIGH);
-//  } else {
-//    digitalWrite(6, LOW);
-//  }
-//  if (300 < v2Peak && v2Peak < 500) {
-//    digitalWrite(7, HIGH);
-//  } else {
-//   digitalWrite(7, LOW);
-//  }
-//  if (300 < v3Peak && v3Peak < 500) {
-//    digitalWrite(8, HIGH);
-//  } else {
-//    digitalWrite(8, LOW);
-//  }
   
   for (int i = 0; i < samples; i++)
   {
@@ -115,26 +186,22 @@ void loop()
     }
   }
 
-
   if (max(max(v1AMP, v2AMP),v3AMP) == v1AMP) {
     digitalWrite(LED1, HIGH);
     digitalWrite(LED2, LOW);
     digitalWrite(LED3, LOW);
   } else if (max(v2AMP, v3AMP) == v2AMP) {
-      digitalWrite(LED1, LOW);
-      digitalWrite(LED2, HIGH);
-      digitalWrite(LED3, LOW);
-    } else {
-        digitalWrite(LED1, LOW);
-        digitalWrite(LED2, LOW);
-        digitalWrite(LED3, HIGH);
-    }
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, HIGH);
+    digitalWrite(LED3, LOW);
+  } else {
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+    digitalWrite(LED3, HIGH);
+  }
 
-  
   delay(10);
 }
-
-
 
 //void FFTComp()
 //{
