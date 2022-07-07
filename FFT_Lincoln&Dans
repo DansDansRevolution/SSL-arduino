@@ -3,10 +3,15 @@
 arduinoFFT FFT = arduinoFFT(); 
 
 const uint16_t samples = 128; //This value MUST ALWAYS be a power of 2
-const double samplingFrequency = 2000; //Hz, must be less than 10000 due to ADC
+double samplingFrequency = 2000; //Hz, must be less than 10000 due to ADC
 
 unsigned int sampling_period_us;
 unsigned long microseconds;
+int t1;
+int t2;
+int dt;
+int sumDT = 0;
+int k;
 
 double v1Real[samples];
 double v1Imag[samples];
@@ -25,7 +30,7 @@ double v3AMP;
 #define LED2 8
 #define LED3 9
 
-//#define SCL_FREQUENCY 0x02
+#define SCL_FREQUENCY 0x02
 
 void setup()
 {
@@ -34,7 +39,7 @@ void setup()
 
   ADC->SAMPCTRL.reg = 0x00;
   
-  sampling_period_us = round(1000000*(1.0/samplingFrequency));
+ 
   Serial.begin(115200);
   while(!Serial);
 
@@ -47,7 +52,10 @@ void setup()
 
 void loop()
 {
+  t1 = micros();
   microseconds = micros();
+  sampling_period_us = round(1000000*(1.0/samplingFrequency));
+  
   for(int i = 0; i < samples; i++){
     v1Real[i] = analogRead(MIC1);
     v1Imag[i] = 0;
@@ -69,75 +77,37 @@ void loop()
     FFT.Windowing(v3Real, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
     FFT.Compute(v3Real, v3Imag, samples, FFT_FORWARD); /* Compute FFT */
     FFT.ComplexToMagnitude(v3Real, v3Imag, samples); /* Compute magnitudes */
-    
+
     for(int j = 0; j < 3; j++){
       v1Real[j] = 0;
       v2Real[j] = 0;
       v3Real[j] = 0;
     }
     
-      double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
-      double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
-      double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
-//      PrintVector(v1Real, (samples >> 1), SCL_FREQUENCY);
-//      PrintVector(v2Real, (samples >> 1), SCL_FREQUENCY);
-//      PrintVector(v3Real, (samples >> 1), SCL_FREQUENCY);
-      
-//  if (300 < v1Peak && v1Peak < 500) {
-//    digitalWrite(6, HIGH);
-//  } else {
-//    digitalWrite(6, LOW);
-//  }
-//  if (300 < v2Peak && v2Peak < 500) {
-//    digitalWrite(7, HIGH);
-//  } else {
-//   digitalWrite(7, LOW);
-//  }
-//  if (300 < v3Peak && v3Peak < 500) {
-//    digitalWrite(8, HIGH);
-//  } else {
-//    digitalWrite(8, LOW);
-//  }
+  double v1Peak = FFT.MajorPeak(v1Real, samples, samplingFrequency);
+  double v2Peak = FFT.MajorPeak(v2Real, samples, samplingFrequency);
+  double v3Peak = FFT.MajorPeak(v3Real, samples, samplingFrequency);
   
   for (int i = 0; i < samples; i++)
   {
     if (((i * samplingFrequency) / samples) > v1Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v1Peak + (samplingFrequency / samples)) {
       v1AMP = v1Real[i];
-    }
-    if (((i * samplingFrequency) / samples) > v2Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v2Peak + (samplingFrequency / samples)) {
+    } if else (((i * samplingFrequency) / samples) > v2Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v2Peak + (samplingFrequency / samples)) {
       v2AMP = v2Real[i];
-    }
-    if (((i * samplingFrequency) / samples) > v3Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v3Peak + (samplingFrequency / samples)) {
+    } if else (((i * samplingFrequency) / samples) > v3Peak - (samplingFrequency / samples) && ((i * samplingFrequency) / samples) < v3Peak + (samplingFrequency / samples)) {
       v3AMP = v3Real[i];
     }
   }
 
-  if (max(max(v1AMP, v2AMP),v3AMP) == v1AMP) {
-    digitalWrite(LED1, HIGH);
-    digitalWrite(LED2, LOW);
-    digitalWrite(LED3, LOW);
-  } else if (max(v2AMP, v3AMP) == v2AMP) {
-    digitalWrite(LED1, LOW);
-    digitalWrite(LED2, HIGH);
-    digitalWrite(LED3, LOW);
-  } else {
-    digitalWrite(LED1, LOW);
-    digitalWrite(LED2, LOW);
-    digitalWrite(LED3, HIGH);
+  t2 = micros();
+  dt = t2 - t1;
+  sumDT = sumDT + dt;
+  
+  if(k % 10 == 0){
+    Serial.println(sumDT/10);
   }
-
-  delay(10);
+  k++;
 }
-
-
-
-//void FFTComp()
-//{
-//  FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
-//  FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
-//  FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
-//  PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
-////}
 
 
 
