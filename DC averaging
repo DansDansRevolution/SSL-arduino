@@ -1,0 +1,57 @@
+const uint16_t samples = 128;
+
+double SampleSig1[samples];
+double SampleSig2[samples];
+double SampleSig3[samples];
+
+double NewSig1[samples];
+double NewSig2[samples];
+double NewSig3[samples];
+
+void setup() {
+  // put your setup code here, to run once:
+Serial.begin(115200);
+}
+
+void loop() {
+  
+double addSig1 = 0;
+double addSig2 = 0;
+double addSig3 = 0;
+
+double meanSig1 = 0;
+double meanSig2 = 0;
+double meanSig3 = 0;
+
+for (uint16_t i = 0; i < samples; i++)
+  {
+    SampleSig1[i] = analogRead(A3);
+    SampleSig2[i] = analogRead(A4);
+    SampleSig3[i] = analogRead(A5);
+
+    addSig1 = addSig1 + SampleSig1[i];
+    addSig2 = addSig2 + SampleSig2[i];
+    addSig3 = addSig3 + SampleSig3[i];
+  }
+  meanSig1 = addSig1 / samples;
+  meanSig2 = addSig2 / samples;
+  meanSig3 = addSig3 / samples;
+  
+  for (uint16_t i = 0; i < samples; i++) {
+    NewSig1[i] = SampleSig1[i] - meanSig1;
+    NewSig2[i] = SampleSig2[i] - meanSig2;
+    NewSig3[i] = SampleSig3[i] - meanSig3;
+  }
+  printData();
+}
+
+void printData() {
+  for (uint16_t i = 0; i < samples; i++)
+  {
+  Serial.print(NewSig1[i]);
+  Serial.print("  ");
+  Serial.print(NewSig2[i]);
+  Serial.print("  ");
+  Serial.println(NewSig3[i]);
+  }
+}
