@@ -1,0 +1,118 @@
+#include <SimpleFOC.h>
+#include <math.h>
+#include "arduinoFFT.h"
+
+arduinoFFT FFT = arduinoFFT(); 
+//Global Variables
+
+
+
+const uint16_t samples = 128; //This value MUST ALWAYS be a power of 2
+
+double sensorValue[samples];  //initialization of sensor variable, equivalent to EMA Y
+double alphaLow = .5;     //initialization of EMA alpha
+double alphaHigh = .5;
+double v1Real [samples];
+double v1Imag [samples];
+double highPass [samples];
+double lowPass [samples];
+double lowPass2 [samples];
+double bandPass [samples];
+
+double SampleSig1[samples];
+double NewSig1[samples];
+
+
+int t1;
+int t2;
+int sumDT;
+int samplingPeriod_us;
+int k;
+ 
+void setup(){
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV32 |    
+                   ADC_CTRLB_RESSEL_10BIT;         
+
+  ADC->SAMPCTRL.reg = 0x00;
+  Serial.begin(115200);              //setup of Serial module, 115200 bits/second
+}
+
+
+void loop(){
+  double addSig1 = 0;
+
+  double meanSig1 = 0;
+  
+  for (uint16_t i = 0; i < samples; i++)
+  {
+    t1 = micros();
+    SampleSig1[i] = analogRead(A3);
+    v1Imag[i] = 0;
+  
+    addSig1 = addSig1 + SampleSig1[i];
+    checkTime(t1);
+  }
+  meanSig1 = addSig1 / samples;
+  
+  for (uint16_t i = 0; i < samples; i++) {
+    NewSig1[i] = SampleSig1[i] - meanSig1;
+  }
+  
+
+//  for(int n = 0; n < samples; n++){
+//    t1 = micros();
+//    v1Real[n] = analogRead(A3);  //int8_t(((1000 * (sin((n * (twoPi * cycles)) / samples))) / 2.0) + ((500 * (sin((n * (twoPi * cycles2)) / samples))) / 2.0)); //read the sensor value using ADC
+//    v1Imag[n] = 0;
+//    checkTime(t1);
+//  }
+
+
+
+
+  alphaLow = findAlpha(400);
+  alphaHigh = findAlpha(450);
+  for(int n = 0; n < samples; n++){
+    lowPass[n]= ((alphaLow*NewSig1[n]) + ((1-alphaLow)*lowPass[n-1])); //run the EMA
+    highPass[n] = (alphaHigh*NewSig1[n]) + ((1-alphaHigh)*highPass[n-1]);
+    bandPass[n] = highPass[n] - lowPass[n];
+
+    
+    
+//    
+//    
+//    highPass [n] = v1Real[n] - lowPass[n];                   //calculate the high-pass signal
+    
+  }
+
+  findFFT();
+  
+  for(int n = 0; n< samples; n++){
+    Serial.println(NewSig1[n]);
+  }
+
+  delayMicroseconds(samplingPeriod_us);
+}
+
+void checkTime (int t1){
+  t2 = micros();
+  samplingPeriod_us = t2 - t1;
+}
+
+void findFFT(){
+  FFT.Windowing(bandPass, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);  /* Weigh data */
+  FFT.Compute(bandPass, v1Imag, samples, FFT_FORWARD); /* Compute FFT */
+  FFT.ComplexToMagnitude(bandPass, v1Imag, samples); /* Compute magnitudes */
+
+//  for(int j = 0; j < 3; j++){
+//      [j] = 0;
+//  }
+}
+
+double findAlpha(double f){
+  double Fs = 1000000 / samplingPeriod_us ;
+  double omega3db = f * M_PI/(Fs/2);
+  double alpha;
+  alpha = cos(omega3db) - 1 + (sqrt(cos(omega3db)) * sqrt(cos(omega3db))) - 4*cos((omega3db) + 3);
+  
+  return alpha;
+}
