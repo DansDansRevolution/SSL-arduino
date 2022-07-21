@@ -1,0 +1,142 @@
+#include "arduinoFFT.h"
+#include "math.h"
+
+const uint16_t samples = 128; //This value MUST ALWAYS be a power of 2
+const double signalFrequency = 64;
+const double samplingFrequency = 22200;
+const uint8_t amplitude = 100;
+
+double SampleSig1[samples];
+double SampleSig2[samples];
+double DCavgSig1[samples];
+double DCavgSig2[samples];
+double DummySig2[samples];
+double DPmult[samples];
+double DPmaxArray[samples];
+int DPmax = 0;
+int DPmaxArraymax = 0;
+
+double dt = 0;
+double long t1 = 0;
+double SamplingPeriod = 0;
+
+int vSound = 343;
+double d = 0.175;
+
+void setup() {
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV32 |    
+                   ADC_CTRLB_RESSEL_10BIT;         
+
+  ADC->SAMPCTRL.reg = 0x00;
+  
+for (uint16_t i = 0; i < samples; i++)
+  {
+    DummySig2[i] = 0;
+  }
+  
+  Serial.begin(115200);
+  while(!Serial);
+}
+
+void loop() {
+
+double addSig1 = 0;
+double addSig2 = 0;
+double addSig3 = 0;
+
+double meanSig1 = 0;
+double meanSig2 = 0;
+double meanSig3 = 0;
+
+for (uint16_t i = 0; i < samples; i++)
+  {
+    //t1 = micros();
+    SampleSig1[i] = analogRead(A3);
+    SampleSig2[i] = analogRead(A4);
+
+    addSig1 = addSig1 + SampleSig1[i];
+    addSig2 = addSig2 + SampleSig2[i];
+    //CheckTime();
+  }
+  meanSig1 = addSig1 / samples;
+  meanSig2 = addSig2 / samples;
+  
+  for (uint16_t i = 0; i < samples; i++) {
+    DCavgSig1[i] = SampleSig1[i] - meanSig1;
+    DCavgSig2[i] = SampleSig2[i] - meanSig2;
+  }
+  //printData();
+  
+  for (int i=0;i<samples;i++) {
+    Shift(i);
+    DotProduct(i);
+    DPmax = 0;
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray[i] > DPmaxArraymax) {
+      DPmaxArraymax = DPmaxArray[i];
+    }
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray[i] == DPmaxArraymax) {
+      if (i > (samples / 2)) {
+        dt = (i - samples) / samplingFrequency;
+        PrintData(i);
+        break;
+      }
+      dt = i / samplingFrequency;
+      PrintData(i);
+      break;
+    }
+  }
+  DPmax = 0;
+  DPmaxArraymax = 0;
+}
+
+void Shift(int s) {
+  for (int i=0;i<samples-s;i++) {
+    DummySig2[i] = DCavgSig2[s+i];
+  }
+  for (int i=0;i<s;i++) {
+    DummySig2[(samples-s)+i] = DCavgSig2[i];
+  }
+}
+
+void DotProduct(int DPi) {
+  for (int i=0;i<samples;i++)
+  {
+    DPmult[i] = DCavgSig1[i]*DummySig2[i];
+    if (DPmult[i] > DPmax) {
+      DPmax = DPmult[i];
+    }
+  }
+  DPmaxArray[DPi] = DPmax;
+}
+
+void PrintData(int s) {
+  if (abs(dt) < (d / vSound)) {
+    Serial.print(s);
+    Serial.print("  ");
+    Serial.print(dt, 7);
+    Serial.print("  ");
+    double theta = acos((dt * vSound) / d);
+    //double thetaamb = twoPi - acos((dt * vSound) / d);
+    Serial.println(theta * 180 / M_PI);
+    //Serial.print("  ");
+    //Serial.println(thetaamb * 180 / M_PI);
+  }
+}
+
+//void printData() {
+//  for (uint16_t i = 0; i < samples; i++)
+//  {
+//  Serial.print(DCavgSig1[i]);
+//  Serial.print("  ");
+//  Serial.println(DCavgSig2[i]);
+//  }
+//}
+
+//void CheckTime() {
+//  SamplingPeriod = micros() - t1;
+//  Serial.println(SamplingPeriod);
+//}
