@@ -1,0 +1,309 @@
+#include "arduinoFFT.h"
+#include "math.h"
+
+const uint16_t samples = 128; //This value MUST ALWAYS be a power of 2
+const double samplingFrequency = 15400;
+
+double SampleSig1[samples];
+double SampleSig2[samples];
+double SampleSig3[samples];
+double NewSig1[samples];
+double NewSig2[samples];
+double NewSig3[samples];
+double SampleDummySig2[samples];
+double SampleDummySig3[samples];
+double DPmult12[samples];
+double DPmult23[samples];
+double DPmult13[samples];
+double DPmaxArray12[samples];
+double DPmaxArray23[samples];
+double DPmaxArray13[samples];
+int DPmax12 = 0;
+int DPmax23 = 0;
+int DPmax13 = 0;
+int DPmaxArraymax12 = 0;
+int DPmaxArraymax23 = 0;
+int DPmaxArraymax13 = 0;
+
+int sigMax1 = 0;
+int sigMax2 = 0;
+int sigMax3 = 0;
+
+double dt12 = 0;
+double dt23 = 0;
+double dt13 = 0;
+int s12 = 0;
+int s23 = 0;
+int s13 = 0;
+double long t1 = 0;
+double SamplingPeriod = 0;
+
+int vSound = 343;
+double d = 0.14;
+
+void setup() {
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV32 |    
+                   ADC_CTRLB_RESSEL_10BIT;         
+
+  ADC->SAMPCTRL.reg = 0x00;
+
+  pinMode(7, OUTPUT);
+  pinMode(8, OUTPUT);
+  pinMode(9, OUTPUT);
+  
+for (uint16_t i = 0; i < samples; i++)
+  {
+    SampleDummySig2[i] = 0;
+    SampleDummySig3[i] = 0;
+  }
+  
+  Serial.begin(115200);
+  while(!Serial);
+}
+
+void loop() {
+
+double addSig1 = 0;
+double addSig2 = 0;
+double addSig3 = 0;
+
+double meanSig1 = 0;
+double meanSig2 = 0;
+double meanSig3 = 0;
+
+for (uint16_t i = 0; i < samples; i++)
+  {
+    //t1 = micros();
+    SampleSig1[i] = analogRead(A3);
+    SampleSig2[i] = analogRead(A4);
+    SampleSig3[i] = analogRead(A5);
+
+    addSig1 = addSig1 + SampleSig1[i];
+    addSig2 = addSig2 + SampleSig2[i];
+    addSig3 = addSig3 + SampleSig3[i];
+    //CheckTime();
+  }
+  
+  meanSig1 = addSig1 / samples;
+  meanSig2 = addSig2 / samples;
+  meanSig3 = addSig3 / samples;
+
+  for (uint16_t i = 0; i < samples; i++) {
+    NewSig1[i] = SampleSig1[i] - meanSig1;
+    NewSig2[i] = SampleSig2[i] - meanSig2;
+    NewSig3[i] = SampleSig3[i] - meanSig3;
+  }
+  
+  for (int i=0;i<samples;i++) {
+    Shift12(i);
+    Shift23(i);
+    Shift13(i);
+    DotProduct12(i);
+    DotProduct23(i);
+    DotProduct13(i);
+    DPmax12 = 0;
+    DPmax23 = 0;
+    DPmax13 = 0;
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray12[i] > DPmaxArraymax12) {
+      DPmaxArraymax12 = DPmaxArray12[i];
+    }
+    if (DPmaxArray23[i] > DPmaxArraymax23) {
+      DPmaxArraymax23 = DPmaxArray23[i];
+    }
+    if (DPmaxArray13[i] > DPmaxArraymax13) {
+      DPmaxArraymax13 = DPmaxArray13[i];
+    }
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray12[i] == DPmaxArraymax12) {
+      if (i > (samples / 2)) {
+        dt12 = (i - samples) / samplingFrequency;
+        s12 = i;
+        PrintData();
+        break;
+      }
+      dt12 = i / samplingFrequency;
+      s12 = i;
+      PrintData();
+      break;
+    }
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray23[i] == DPmaxArraymax23) {
+      if (i > (samples / 2)) {
+        dt23 = (i - samples) / samplingFrequency;
+        s23 = i;
+        PrintData();
+        break;
+      }
+      dt23 = i / samplingFrequency;
+      s23 = i;
+      PrintData();
+      break;
+    }
+  }
+  for (int i=0;i<samples;i++) {
+    if (DPmaxArray13[i] == DPmaxArraymax13) {
+      if (i > (samples / 2)) {
+        dt13 = (i - samples) / samplingFrequency;
+        s13 = i;
+        PrintData();
+        break;
+      }
+      dt13 = i / samplingFrequency;
+      s13 = i;
+      PrintData();
+      break;
+    }
+  }
+  DPmax12 = 0;
+  DPmax23 = 0;
+  DPmax13 = 0;
+  DPmaxArraymax12 = 0;
+  DPmaxArraymax23 = 0;
+  DPmaxArraymax13 = 0;
+
+  for (int i=0;i<samples;i++) {
+    if (NewSig1[i] > sigMax1) {
+      sigMax1 = NewSig1[i];
+    }
+  }
+  
+  for (int i=0;i<samples;i++) {
+    if (NewSig2[i] > sigMax2) {
+      sigMax2 = NewSig2[i];
+    }
+  }
+
+  for (int i=0;i<samples;i++) {
+    if (NewSig3[i] > sigMax3) {
+      sigMax3 = NewSig3[i];
+    }
+  }
+
+  if (max(max(sigMax1, sigMax2),sigMax3) == sigMax1) {
+      digitalWrite(7, HIGH);
+      digitalWrite(8, LOW);
+      digitalWrite(9, LOW);
+    } else if (max(sigMax2, sigMax3) == sigMax2) {
+      digitalWrite(7, LOW);
+      digitalWrite(8, HIGH);
+      digitalWrite(9, LOW);
+    } else {
+      digitalWrite(7, LOW);
+      digitalWrite(8, LOW);
+      digitalWrite(9, HIGH);
+    }
+    sigMax1 = 0;
+    sigMax2 = 0;
+    sigMax3 = 0;
+}
+
+void Shift12(int s) {
+  for (int i=0;i<samples-s;i++) {
+    SampleDummySig2[i] = NewSig2[s+i];
+  }
+  for (int i=0;i<s;i++) {
+    SampleDummySig2[(samples-s)+i] = NewSig2[i];
+  }
+}
+
+void Shift23(int s) {
+  for (int i=0;i<samples-s;i++) {
+    SampleDummySig3[i] = NewSig3[s+i];
+  }
+  for (int i=0;i<s;i++) {
+    SampleDummySig3[(samples-s)+i] = NewSig3[i];
+  }
+}
+
+void Shift13(int s) {
+  for (int i=0;i<samples-s;i++) {
+    SampleDummySig3[i] = NewSig3[s+i];
+  }
+  for (int i=0;i<s;i++) {
+    SampleDummySig3[(samples-s)+i] = NewSig3[i];
+  }
+}
+
+void DotProduct12(int DPi) {
+  for (int i=0;i<samples;i++)
+  {
+    DPmult12[i] = NewSig1[i]*SampleDummySig2[i];
+    if (DPmult12[i] > DPmax12) {
+      DPmax12 = DPmult12[i];
+    }
+  }
+  DPmaxArray12[DPi] = DPmax12;
+}
+
+void DotProduct23(int DPi) {
+  for (int i=0;i<samples;i++)
+  {
+    DPmult23[i] = NewSig2[i]*SampleDummySig3[i];
+    if (DPmult23[i] > DPmax23) {
+      DPmax23 = DPmult23[i];
+    }
+  }
+  DPmaxArray23[DPi] = DPmax23;
+}
+
+void DotProduct13(int DPi) {
+  for (int i=0;i<samples;i++)
+  {
+    DPmult13[i] = NewSig1[i]*SampleDummySig3[i];
+    if (DPmult13[i] > DPmax13) {
+      DPmax13 = DPmult13[i];
+    }
+  }
+  DPmaxArray13[DPi] = DPmax13;
+}
+
+void PrintData() {
+  //if (abs(dt12) < (d / vSound) && abs(dt23) < (d / vSound)) {
+    Serial.print("MIC12:");
+    Serial.print("  ");
+    Serial.print(s12);
+    Serial.print("  ");
+    Serial.print(dt12, 7);
+    Serial.print("  ");
+//    double theta12 = acos((dt12 * vSound) / d);
+//    Serial.println(theta12 * 180 / M_PI);
+    
+    Serial.print("MIC23:");
+    Serial.print("  ");
+    Serial.print(s23);
+    Serial.print("  ");
+    Serial.println(dt23, 7);
+
+
+
+    Serial.print("MIC13:");
+    Serial.print("  ");
+    Serial.print(s13);
+    Serial.print("  ");
+    Serial.println(dt13, 7);
+//    double theta23 = M_PI - (acos((dt23 * vSound) / d));
+//    Serial.println(theta23 * 180 / M_PI);
+
+//    Serial.print("x:");
+//    double x = (-(d / 2) * (tan(theta23) + 1)) / ((1 / (tan(theta12))) - tan(theta23));
+//    Serial.print(x);
+//    Serial.print("  ");
+//    Serial.print("y:");
+//    double y = (x * (1 / tan(theta12))) + (d / 2);
+//    Serial.println(y);
+    
+    Serial.println("  ");
+  //} else {
+   // loop();
+  //}
+}
+
+
+//void CheckTime() {
+//  SamplingPeriod = micros() - t1;
+//  Serial.println(SamplingPeriod);
+//}
